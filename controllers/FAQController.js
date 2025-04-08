@@ -8,8 +8,8 @@ const getFAQ = async (req, res) => {
         return res.status(201).json(faq)
 
     } catch (error) {
-        console.log(error);
-        res.status(500).json({message:" Internal server error"})
+        console.error(error);
+        res.status(500).json({message:" Internal server error"});
         
     }
 }
