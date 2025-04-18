@@ -2,7 +2,8 @@ const mongoose = require("mongoose");
 const xlsx = require("xlsx");
 const fs = require("fs").promises; 
 const RFQSchema = require("../models/RFQSchema"); 
-const RFQHistorySchema = require('../models/RFQHistorySchema')
+const RFQHistorySchema = require('../models/RFQHistorySchema');
+const BRFQSchema = require('../models/BRFQSchema')
 
 
 
@@ -24,7 +25,7 @@ const getAllRFQ = async (req, res) => {
         console.error("Error in getRFQ:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
-};
+}
 
 const getRFQWithId = async(req,res)=>{
     try {
@@ -32,7 +33,7 @@ const getRFQWithId = async(req,res)=>{
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({message: "ID is not valid mongo ID"});
 
-        const response = await RFQSchema.findById(id).populate(['category', 'brand']).lean();
+        const response = await RFQSchema.findById(id).populate(['category', 'brand', "createdBy"]).lean();
         if(!response) return res.status(400).json({message: "RFQ not found"})
         
         res.status(200).json(response)
@@ -42,7 +43,6 @@ const getRFQWithId = async(req,res)=>{
         res.status(500).json({message: "Internal server error"})
     }
 }
-
 
 const getLoggedUserRFQ = async (req, res) => {
     try {
@@ -63,7 +63,7 @@ const getLoggedUserRFQ = async (req, res) => {
         
     } catch (error) {
         console.error(error);
-        res.status(500).json({message: "Internal server error"})
+        res.status(500).json({message: "Internal server error"});
     }
 }
 
@@ -72,7 +72,7 @@ const getRFQHistory = async(req,res)=>{
         const id = req.params?.id;
 
         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({message:"Id is not valid mongo Id"})
-        const response = await RFQHistorySchema.find({rfqId: id}).populate("rfqId").lean();
+        const response = await RFQHistorySchema.find({rfqId: id}).populate("rfqId").lean().sort({createdAt: -1});
         if(!response) res.status(400).json({message: "Data not found"});
         res.status(200).json(response);
 
@@ -84,9 +84,9 @@ const getRFQHistory = async(req,res)=>{
 
 const addRFQ = async (req, res) => {
     try {
-        const { product, category,  brand, createdBy, orderQuantity, measurement,  DeliveryLocation, pinCode, comments } = req.body;
+        const { product, category,  brand, createdBy, quantity, fromDate, toDate, deliverySchedule, measurement,  DeliveryLocation, pinCode, comments, spreadQuantity } = req.body;
 
-        if (!product || !category || !brand || !createdBy || !orderQuantity || !measurement || !DeliveryLocation || !pinCode) {
+        if (!product || !category || !brand || !createdBy || !quantity || !fromDate || !toDate || !deliverySchedule  || !measurement || !DeliveryLocation || !pinCode || !spreadQuantity) {
             return res.status(400).json({ message: "All fields are required" });
         }
 
@@ -136,17 +136,21 @@ const addRFQ = async (req, res) => {
             };
         });
 
-       const quantityData = JSON.parse(orderQuantity);
+        const spreadQuantityData = JSON.parse(spreadQuantity);
 
         const newRFQ = await RFQSchema.create({
             product,
             category,
             brand,
             createdBy,
-            orderQuantity: quantityData,
+            quantity,
+            fromDate,
+            toDate,
+            deliverySchedule,
             measurement,
             DeliveryLocation,
             pinCode,
+            spreadQuantityData,
             comments,
             document: formattedData, 
         });
@@ -161,7 +165,61 @@ const addRFQ = async (req, res) => {
         console.error("Error in addRFQ:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
-};
+}
+
+const approvedRFQ = async (req, res)=>{
+
+    const session = await mongoose.startSession(); 
+    session.startTransaction(); 
+
+    try {
+        const id = req.params?.id;
+
+        if(!mongoose.Types.ObjectId.isValid(id)){
+            await session.abortTransaction();
+            return res.status(400).json({message: "Invalid mongoose id"});
+        } 
+
+        const rfq = await RFQSchema.findByIdAndUpdate(id ,{$set: {process: "approved by buyer", status: true}}, {new: true, runValidators:true, session});
+
+        if(!rfq){
+          await session.abortTransaction();
+         return res.status(400).json({message: "RFQ is not updated"})
+        } 
+        
+        const isExist = await BRFQSchema.findOne({rfqId: {$eq: id}});
+
+        if(isExist){
+            await session.abortTransaction();
+            return res.status(400).json({message:"RFQ already approved"});
+        } 
+
+        const data = {
+            rfqId: id,
+            status: false,
+        }
+
+        const brfq = await BRFQSchema.create([data],{session});
+
+        if(!brfq){
+            await session.abortTransaction();
+            return res.status(400).json({message: "BRFQ not created"});
+        };
+      
+        await session.commitTransaction();
+        session.endSession()
+        res.status(200).json({message: "RFQ converted to BRFQ successfully",brfq});
+
+
+    } catch (error) {
+        await session.abortTransaction()
+        console.error(error);
+        res.status(500).json({message: "Internal server error"});
+    }
+    finally{
+       await session.endSession()
+    }
+}
 
 const editRFQ = async (req, res) => {
     const session = await mongoose.startSession(); 
@@ -169,17 +227,17 @@ const editRFQ = async (req, res) => {
 
     try {
         const id = req.params?.id;
-        const { product, category, brand,  DeliveryLocation, status, process, comments, pinCode, orderQuantity, additionalComment } = req.body;
+        const { product, category, brand,  DeliveryLocation, status, process, comments, pinCode, spreadQuantityData, additionalComment } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             await session.abortTransaction(); 
             return res.status(400).json({ message: "ID is not a valid Mongo ID" });
         }
 
-        // Update RFQ with session
+        
         const response = await RFQSchema.findByIdAndUpdate(
             id,
-            { $set: { product, category, brand, DeliveryLocation, status, process, comments, pinCode, orderQuantity, additionalComment } },
+            { $set: { product, category, brand, DeliveryLocation, status, process, comments, pinCode, spreadQuantityData, additionalComment } },
             { new: true, runValidators: true, session } 
         );
 
@@ -194,8 +252,9 @@ const editRFQ = async (req, res) => {
             additionalComment,
             DeliveryLocation,
             pinCode,
-            orderQuantity
+            spreadQuantityData
         }], { session });
+
 
         if (!history) {
             await session.abortTransaction();
@@ -210,11 +269,9 @@ const editRFQ = async (req, res) => {
         await session.abortTransaction(); 
         res.status(500).json({ message: "Internal server error" });
     } finally {
-        session.endSession(); 
+       await session.endSession(); 
     }
-};
-
-
+}
 
 const deleteRFQ = async(req, res)=>{
     try {
@@ -232,6 +289,6 @@ const deleteRFQ = async(req, res)=>{
     }
 }
 
-module.exports = {addRFQ ,getLoggedUserRFQ ,getRFQWithId, getRFQHistory, getAllRFQ, editRFQ, deleteRFQ};
+module.exports = {addRFQ ,getLoggedUserRFQ ,getRFQWithId, getRFQHistory, getAllRFQ, approvedRFQ, editRFQ, deleteRFQ};
 
 

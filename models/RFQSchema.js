@@ -19,30 +19,55 @@ const RFQSchema = new mongoose.Schema(
       ref: "user",
       required: true,
     },
-
+    quantity:{
+      type: Number,
+      required: true,
+      trim: true
+    },
+    fromDate:{
+      type: Date,
+      required: true
+    },
+    toDate:{
+      type: Date,
+      required: true
+    },
+    deliverySchedule:{
+      type: String,
+      enum: ["weekly", "monthly", "quarterly", "annually"],
+      required: true
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
       required: true
     },
 
-    orderQuantity:[
+    spreadQuantityData:[
       {
          quantity:{
           type: Number,
-          required: true,
+          
           trim: true
          },
-         deliveryDate:{
+         fromDate:{
           type: Date,
-          required: true
+          
+         },
+         toDate:{
+          type: Date,
+         
+         },
+         location:{
+          type: String,
+          trim: true
          }
       },
     ],
 
     measurement:{
-       type: String,
-       enum:[
+    type: String,
+    enum:[
       "mm", "cm", "m", "inch", "feet", 
       "m²", "ft²", 
       "m³", "ft³", 

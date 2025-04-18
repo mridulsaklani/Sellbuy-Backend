@@ -37,7 +37,10 @@ const SpecificationRouter = require("./routes/SpecificationRouter")
 const AdminContactRouter = require('./routes/AdminContactRoute');
 const DownloadRouter = require('./routes/DownloadRouter');
 const NewRFQRouter = require('./routes/NewRFQRouter');
-const AuthRouter = require("./routes/AuthRouter.js")
+const AuthRouter = require("./routes/AuthRouter.js");
+const BRFQRouter = require("./routes/BRFQRouter.js");
+const AssignBRFQRouter = require("./routes/AssignedBRFQRouter.js");
+const OTPRouter = require("./routes/VerifyOTPRouter.js")
 
 // Routers End
 
@@ -64,10 +67,13 @@ app.use("/api/specification", SpecificationRouter);
 app.use("/api/admin-contact", AdminContactRouter);
 app.use("/api/download", DownloadRouter);
 app.use("/api/auth", AuthRouter);
+app.use("/api/new-rfq", NewRFQRouter);
+app.use("/api/brfq", BRFQRouter);
+app.use("/api/assigned", AssignBRFQRouter);
+app.use("/api/otp", OTPRouter)
 
 // Buyer Admin panel route
 
-app.use("/api/new-rfq", NewRFQRouter);
 
 
 // Route Middleware End

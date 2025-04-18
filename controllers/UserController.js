@@ -2,7 +2,15 @@ const UserSchema = require("../models/UserModel");
 const mongoose = require("mongoose")
 const BuyerSchema = require('../models/BuyerSchema');
 const SupplierSchema = require('../models/SupplierSchema');
-const JWT = require("jsonwebtoken")
+const JWT = require("jsonwebtoken");
+
+const {sendWelcomeMail} = require('../utils/mailer');
+
+
+// Generate Verify OTP
+const generateVerificationOTP =()=>{
+  return  Math.floor(100000 + Math.random() * 900000).toString();
+} 
 
 
 const generateAccessAndRefreshToken = async(userId)=>{
@@ -64,7 +72,7 @@ const getSingleUser = async(req,res)=>{
 
 const buyerUser = async (req,res)=>{
     try {
-        const response = await UserSchema.find({role: {$eq: "buyer"}}).select("-password -refreshToken").lean();
+        const response = await UserSchema.find({role: {$eq: "buyer"}}).select("-password -refreshToken").sort({createdAt: -1}).lean();
         if(!response) res.status(404).json({message: "Not found"});
         res.status(200).json({message: "Buyer user get successfully", user: response});
     } catch (error) {
@@ -78,7 +86,7 @@ const buyerUser = async (req,res)=>{
 
 const supplierUser = async(req, res)=>{
     try {
-        const response = await UserSchema.find({role: {$eq: "supplier"}}).select("-password -refreshToken").lean();
+        const response = await UserSchema.find({role: {$eq: "supplier"}}).select("-password -refreshToken").sort({createdAt: -1}).lean();
         if(!response) res.status(404).json({message: "Not Found"});
         res.status(200).json({message: "Supplier user get successfully", user: response});
     } catch (error) {
@@ -86,6 +94,41 @@ const supplierUser = async(req, res)=>{
         res.status(500).json({message: "Internal server error"});
     }
 }
+
+// Count User
+
+const getUsersQuantity = async (req, res) => {
+    try {
+        const result = await UserSchema.aggregate([
+            {
+                $group: {
+                    _id: "$role",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const response = {
+            buyerCount: 0,
+            supplierCount: 0
+        };
+
+        result.forEach(roleGroup => {
+            if (roleGroup._id === 'buyer') {
+                response.buyerCount = roleGroup.count;
+            } else if (roleGroup._id === 'supplier') {
+                response.supplierCount = roleGroup.count;
+            }
+        });
+
+        res.status(200).json(response);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 
 // Add User 
 
@@ -95,27 +138,28 @@ const addUser = async(req, res)=>{
         const {name, email, number, password, role, ...rest} = req.body;
 
         if(!name || !email || !number || !password || !role) return res.status(400).json({message: "Fields are required"});
-
-        // checking user already register 
+ 
 
         const userExist = await UserSchema.findOne({email});
-        console.log('user exist', userExist);
         if(userExist) return res.status(400).json({message: "User already exist, please check your email!"});
 
-        // checking close
-
+        const verificationOTP = generateVerificationOTP();
+        
         let user;
         if(role === "buyer") {
-            user = new BuyerSchema({name, email, number, password, role, ...rest}); 
+            user = new BuyerSchema({name, email, number, password, role, verificationOTP, ...rest}); 
         }
         else if(role === "supplier"){
-            user = new SupplierSchema({name, email, number, password, role, ...rest});
+            user = new SupplierSchema({name, email, number, password, role, verificationOTP, ...rest});
         }
         else{
             return res.status(400).json({message: "Invalid role"});
         }
 
         await user.save();
+
+        await sendWelcomeMail(email, name, verificationOTP);
+
 
         res.status(201).json({
             message: "user created successfully",
@@ -155,8 +199,7 @@ const loginUser = async(req, res)=>{
         return res.status(200).cookie("accessToken", accessToken, option).cookie("refreshToken", refreshToken , option).json({
             message: "User logged In successfully",
             user: loggedInUser,
-            LoggedAccessToken: accessToken,
-            LoggedRefreshToken: refreshToken
+            
         })
         
         
@@ -167,13 +210,14 @@ const loginUser = async(req, res)=>{
 }
 
 
+
 // Logout User
 
 const logoutUser = async(req, res)=>{
     try {
         await UserSchema.findByIdAndUpdate(req.user?._id,
             {
-                $set: {refreshToken: undefined}
+                $set: {refreshToken: undefined, isActive: false}
             },
             {
                 new: true
@@ -256,6 +300,80 @@ const changePassword = async (req ,res)=>{
     }
 }
 
+// Update User 
+
+
+
+const updateUser = async (req, res) => {
+  try {
+    const id = req.user?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid mongoose Id" });
+    }
+
+    const user = await UserSchema.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const {
+      name,
+      email,
+      number,
+      rating,
+      location,
+      billingName,
+      company,
+      category,
+      branchDetail
+    } = req.body;
+
+    
+    let Model = UserSchema;
+    if (user.role === 'supplier') {
+      Model = SupplierSchema;
+    } else if (user.role === 'buyer') {
+      Model = BuyerSchema; 
+    }
+
+    // Build update object dynamically
+    const updateFields = {
+      name,
+      email,
+      number,
+      rating,
+      location,
+      billingName,
+    };
+
+    if (user.role === 'supplier') {
+      updateFields.company = company;
+      updateFields.category = category;
+      updateFields.branchDetail = branchDetail;
+    }
+
+    const updatedUser = await Model.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(400).json({ message: "User not updated" });
+    }
+
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error("Update error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
 // Delete User
 
 const deleteUser = async(req,res)=>{
@@ -280,10 +398,12 @@ module.exports = {
     getSingleUser,
     buyerUser,
     supplierUser,
+    getUsersQuantity,
     loginUser,
     logoutUser,
     getUser,
     refreshAccessToken,
+    updateUser,
     changePassword,
     deleteUser,
 }

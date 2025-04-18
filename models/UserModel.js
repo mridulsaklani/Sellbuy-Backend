@@ -9,7 +9,12 @@ const userSchema = new mongoose.Schema({
     number: {type: String, required: true, unique: true},
     password: { type: String, required: true },
     refreshToken: {type: String, default: ""},
+    isActive: {type: Boolean, default: false, required: true},
+    rating:{type: Number, default: null, enum: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]},
+    location:{type: String, trim: true},
+    billingName:{type: String, trim: true, lowercase: true},
     role: { type: String, enum: ["buyer", "supplier"], required: true },
+    verificationOTP:{ type: Number,trim: true }
 },
 { 
     discriminatorKey: "role", 
@@ -39,6 +44,7 @@ userSchema.methods.generateAccessToken =  function() {
         }
 )
 }
+
 userSchema.methods.generateRefreshToken = function() {
     return jwt.sign(
         {

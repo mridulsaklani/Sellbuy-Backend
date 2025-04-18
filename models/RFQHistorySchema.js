@@ -22,17 +22,27 @@ const RFQHistorySchema = new mongoose.Schema({
       type: Number,
       trim: true
      },
-     orderQuantity:[
+     spreadQuantityData:[
       {
          quantity:{
           type: Number,
+          
           trim: true
          },
-         deliveryDate:{
+         fromDate:{
           type: Date,
+          
+         },
+         toDate:{
+          type: Date,
+         
+         },
+         location:{
+          type: String,
+          trim: true
          }
       },
-     ],
+    ],
 },{timestamps: true});
 
 module.exports = mongoose.model('RFQHistory', RFQHistorySchema);
