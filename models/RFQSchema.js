@@ -119,6 +119,7 @@ const RFQSchema = new mongoose.Schema(
     additionalComment:
         {
           type: String,
+          default:""
         },
        
     

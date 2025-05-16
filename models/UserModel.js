@@ -5,15 +5,16 @@ const jwt = require('jsonwebtoken')
 
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, lowercase: true },
-    email: { type: String, required: true, unique: true, lowercase: true },
-    number: {type: String, required: true, unique: true},
+    email: { type: String, required: true, unique: [true, "Email is already register"], lowercase: true },
+    number: {type: String, required: true},
     password: { type: String, required: true },
     refreshToken: {type: String, default: ""},
+    isEmailVerify:{type: Boolean, default: false},
     isActive: {type: Boolean, default: false, required: true},
     rating:{type: Number, default: null, enum: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]},
     location:{type: String, trim: true},
     billingName:{type: String, trim: true, lowercase: true},
-    role: { type: String, enum: ["buyer", "supplier"], required: true },
+    role: { type: String, enum: ["buyer", "supplier", "admin"], required: true },
     verificationOTP:{ type: Number,trim: true }
 },
 { 

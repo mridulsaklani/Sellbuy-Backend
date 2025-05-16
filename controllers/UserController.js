@@ -4,7 +4,8 @@ const BuyerSchema = require('../models/BuyerSchema');
 const SupplierSchema = require('../models/SupplierSchema');
 const JWT = require("jsonwebtoken");
 
-const {sendWelcomeMail} = require('../utils/mailer');
+const {sendWelcomeMail, sendUserVerificationMail} = require('../utils/mailer');
+const { options } = require("../routes/UserRouter");
 
 
 // Generate Verify OTP
@@ -27,7 +28,7 @@ const generateAccessAndRefreshToken = async(userId)=>{
 
     }catch(err){
         console.error(err)
-        res.status(500).json({message: "Internal server error"})
+        
     }
 }
 
@@ -78,7 +79,6 @@ const buyerUser = async (req,res)=>{
     } catch (error) {
         console.error(error);
         res.status(500).json({message: "Internal server error"})
-        
     }
 }
 
@@ -141,7 +141,7 @@ const addUser = async(req, res)=>{
  
 
         const userExist = await UserSchema.findOne({email});
-        if(userExist) return res.status(400).json({message: "User already exist, please check your email!"});
+        if(userExist) return res.status(400).json({message: "User already exist, please use different email!"});
 
         const verificationOTP = generateVerificationOTP();
         
@@ -171,6 +171,83 @@ const addUser = async(req, res)=>{
     }
 }
 
+
+// Verify OTP
+
+const verifyOTP = async (req, res) => {
+    try {
+        const { otp, emailForVerification } = req.body;
+
+        if (!otp, !emailForVerification) {
+            return res.status(400).json({ success: false, message: "OTP field and verification email not found" });
+        }        
+
+        const user = await UserSchema.findOne({ email: emailForVerification });
+
+        if (!user) {
+            return res.status(400).json({ message: "user is not valid" });
+        }
+
+        
+        if (String(user.verificationOTP) !== String(otp)) {
+            return res.status(400).json({ message: "OTP is not valid" });
+        }
+
+        user.verificationOTP = null;
+        user.isEmailVerify = true
+        await user.save();
+
+        res.status(200).json({ message: "You are authorized" });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
+// Verify OTP for forget password user to Reset password
+
+const verifyOTPForgetPassword = async(req,res)=>{
+    try {
+        const {otp, emailForVerification} = req.body;
+        if (!otp, !emailForVerification) {
+            return res.status(400).json({ success: false, message: "OTP field and verification email not found" });
+        }        
+
+        const user = await UserSchema.findOne({ email: emailForVerification });
+
+        if (!user) {
+            return res.status(400).json({ message: "user is not valid" });
+        }
+
+        
+        if (String(user.verificationOTP) !== String(otp)) {
+            return res.status(400).json({ message: "OTP is not valid" });
+        }
+
+        const {accessToken , refreshToken } = await generateAccessAndRefreshToken(user._id);``
+
+        user.verificationOTP = null;
+        
+        await user.save();
+        const User = await UserSchema.findById(user._id).select("-password -refreshToken");
+
+        const option = {
+            httpOnly: true, 
+            secure: true,
+            sameSite: "None",
+        }
+
+       return res.status(200).cookie("accessToken", accessToken, option).cookie("refreshToken", refreshToken, option).json({ message: "You are authorized", user: User });
+
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({message: "Internal server error"})
+    }
+}
+
 // Login User
 
 const loginUser = async(req, res)=>{
@@ -181,10 +258,23 @@ const loginUser = async(req, res)=>{
         
         const user = await UserSchema.findOne({email});
 
-        if(!user) return res.status(400).json({message: "User not exist"});
+        if(!user) return res.status(400).json({message: "Incorrect email"});
+
+        if(user.isEmailVerify !== true){
+            let {name, verificationOTP} = user;
+
+            if(!verificationOTP){
+                verificationOTP = generateVerificationOTP()
+                user.verificationOTP = verificationOTP
+                await user.save();
+            }
+            
+            await sendWelcomeMail(email,name,verificationOTP);
+            return res.status(401).json({success: false, message: "Email is not verified, otp resend, please verify otp first"});
+        }
 
         const isPasswordValid = await user.isPasswordCorrect(password);
-        if(!isPasswordValid) return res.status(401).json({message: "Incorrect password"});
+        if(!isPasswordValid) return res.status(400).json({message: "Incorrect password"});
 
         const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id);
 
@@ -273,16 +363,19 @@ const refreshAccessToken = async(req, res)=>{
 }
 
 
-
 // Change Password
 
 const changePassword = async (req ,res)=>{
     try {
+        const id = req.user._id;
+
+        if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({message: "Unauthorized mongoose user Id"})
+
         const {oldPassword, newPassword} = req.body;
 
         if(!oldPassword || !newPassword) return res.status(400).json({message: "Fields are required"});
 
-        const user = await UserSchema.findById(req.user._id);
+        const user = await UserSchema.findById(id);
 
         if(!user) return res.status(400).json({message: "User not found"});
 
@@ -292,6 +385,8 @@ const changePassword = async (req ,res)=>{
         user.password = newPassword;
 
         await user.save({validateBeforeSave: false});
+
+        res.status(200).json({message: 'Password is changed successfully'})
 
 
     } catch (error) {
@@ -335,21 +430,29 @@ const updateUser = async (req, res) => {
       Model = BuyerSchema; 
     }
 
-    // Build update object dynamically
     const updateFields = {
       name,
       email,
       number,
       rating,
       location,
-      billingName,
+      
+     
     };
 
     if (user.role === 'supplier') {
       updateFields.company = company;
       updateFields.category = category;
       updateFields.branchDetail = branchDetail;
+      updateFields.billingName = billingName
     }
+
+    if (user.role === 'buyer') {
+      updateFields.company = company;
+      updateFields.category = category;
+      updateFields.billingName = billingName
+    }
+    
 
     const updatedUser = await Model.findByIdAndUpdate(
       id,
@@ -372,6 +475,63 @@ const updateUser = async (req, res) => {
   }
 };
 
+// User Verification for Forget password
+
+const userVerificationForgotPassword = async(req, res)=>{
+   try {
+    const {email} = req.body;
+    
+    if(!email) return res.status(404).json({message: "Email address not found"})
+    
+    const isUserExist =  await UserSchema.findOne({email: email})
+
+    if(!isUserExist) return res.status(401).json({message: "User is not register"})
+
+    const otp =  Number(generateVerificationOTP())
+
+    isUserExist.verificationOTP = otp
+
+    await isUserExist.save()
+
+    const sendMail =  await sendUserVerificationMail(email, otp)
+
+    console.log(sendMail)
+
+    return res.status(200).json({message:`verification mail send successfully on ${email}`})
+
+   } catch (error) {
+    console.log(error);
+    res.status(500).json({message: "Internal server error"})
+   }
+}
+
+const changePasswordForget = async(req, res)=>{
+    try {
+        const id = req.user._id
+        const {password} = req.body;
+
+        if(!mongoose.Types.ObjectId.isValid(id)) return res.status(401).json({message: "Invalid mongoose user"})
+        
+        if(!password) return res.status(400).json({message: "Data is missing"})
+
+        const user = await UserSchema.findById(id)
+
+        if(!user) return res.status(404).json({message: "User not found"})
+
+        user.password = password;
+
+        await user.save({validateBeforeSave: false});
+        
+        const role = user.role
+
+        return res.status(200).json({message: "password changed successfully", userRole: role})
+
+
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({message: "Internal server error"})
+    }
+}
 
 
 // Delete User
@@ -399,11 +559,15 @@ module.exports = {
     buyerUser,
     supplierUser,
     getUsersQuantity,
+    verifyOTP,
     loginUser,
     logoutUser,
     getUser,
     refreshAccessToken,
     updateUser,
     changePassword,
+    userVerificationForgotPassword,
+    verifyOTPForgetPassword,
     deleteUser,
+    changePasswordForget
 }

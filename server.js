@@ -40,7 +40,8 @@ const NewRFQRouter = require('./routes/NewRFQRouter');
 const AuthRouter = require("./routes/AuthRouter.js");
 const BRFQRouter = require("./routes/BRFQRouter.js");
 const AssignBRFQRouter = require("./routes/AssignedBRFQRouter.js");
-const OTPRouter = require("./routes/VerifyOTPRouter.js")
+const VRFQRouter = require("./routes/VRFQRouter.js");
+const OrderRouter = require("./routes/OrderRouter.js")
 
 // Routers End
 
@@ -70,7 +71,9 @@ app.use("/api/auth", AuthRouter);
 app.use("/api/new-rfq", NewRFQRouter);
 app.use("/api/brfq", BRFQRouter);
 app.use("/api/assigned", AssignBRFQRouter);
-app.use("/api/otp", OTPRouter)
+app.use("/api/vrfq", VRFQRouter);
+app.use("/api/order", OrderRouter)
+
 
 // Buyer Admin panel route
 

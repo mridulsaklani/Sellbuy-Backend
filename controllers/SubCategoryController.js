@@ -7,7 +7,7 @@ const getSubCategory = async(req,res) =>{
         const subCategory = await SubCategorySchema.find().populate('categoryId').sort({createdAt : -1});
      
         if(!subCategory) return res.status(404).json({message: "Sub Categories not found"});
-        res.status(200).json(subCategory)
+        return res.status(200).json(subCategory)
     } catch (error) {
         console.error(error);
         res.status(500).json({message:"Sub Categories not found"})
@@ -27,11 +27,29 @@ const getPaginatedSubCategory = async(req,res) =>{
         if(!subCategory) return res.status(404).json({message: "Sub Categories not found"});
         const totalPages = Math.ceil(count / limit);
     
-
         return res.status(200).json({subCategory, totalPages, count});
+
     } catch (error) {
         console.error(error);
         res.status(500).json({message:"Sub Categories not found"});
+    }
+}
+
+const getSubCategoryWithAssignedCategory = async(req,res)=>{
+    try {
+         const id = req.params?.id;
+
+         if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({message: "Unauthorized mongoose category id"});
+
+        const subCategory = await SubCategorySchema.find({categoryId:id}).populate("categoryId");
+
+        if(!subCategory) return res.status(404).json({message: "Sub Categories not found behalf of category"});
+
+        return res.status(200).json({message: "Sub Categories fetched successfully", subCategory})
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({message: "Internal server error"})
     }
 }
 
@@ -100,4 +118,4 @@ const deleteSubCategory = async(req,res)=>{
 }
 
 
-module.exports = {getSubCategory, getPaginatedSubCategory, addSubCategory, patchSubCategory, deleteSubCategory}
+module.exports = {getSubCategory, getPaginatedSubCategory, getSubCategoryWithAssignedCategory, addSubCategory, patchSubCategory, deleteSubCategory}
