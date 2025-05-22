@@ -2,12 +2,13 @@ const express = require('express');
 
 const router = express.Router();
 
-const { getAllOrder, getOrderHistory, getOrderById, getSupplierUserOrder, getBuyerUserOrder, getBuyerOrderHistory, getSupplierOrderHistory, generateOrder, getTotalOrderCount, updateOrderTracker}= require('../controllers/OrderController.js');
+const {getTotalOrderReceive, dailyOrderReceived, getAllOrder, getOrderHistory, getOrderById, getSupplierUserOrder, getBuyerUserOrder, getBuyerOrderHistory, getSupplierOrderHistory, generateOrder, getTotalOrderCount, updateOrderTracker}= require('../controllers/OrderController.js');
 const verifyJwt = require('../middlewares/AuthMiddleware.js')
 
-
+router.route('/all-received').get(verifyJwt, getTotalOrderReceive)
 router.route('/add').post(verifyJwt, generateOrder);
 router.route('/getall').get(verifyJwt, getAllOrder);
+router.route('/daily-order').get(verifyJwt, dailyOrderReceived)
 router.route("/all-history").get(verifyJwt, getOrderHistory);
 router.route("/buyer-order-history").get(verifyJwt, getBuyerOrderHistory);
 router.route("/supplier-order-history").get(verifyJwt, getSupplierOrderHistory);

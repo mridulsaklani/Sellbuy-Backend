@@ -69,6 +69,26 @@ const getSingleUser = async(req,res)=>{
     }
 }
 
+const getUserById = async(req,res)=>{
+    try{
+       const id = req.params.id;
+       if(!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({message: "Invalid mongoose id"})
+
+        const user = await UserSchema.findById(id).select("-password -refreshToken").lean();
+        if(!user) return res.status(404).json({message: "User not found"});
+
+        res.status(200).json({
+            message: "User fetch successfully",
+            user,
+        });
+
+
+    }catch(err){
+        console.log(err)
+        res.status(500).json({message: "Internal server error"})
+    }
+}
+
 // Get Buyer
 
 const buyerUser = async (req,res)=>{
@@ -555,6 +575,7 @@ const deleteUser = async(req,res)=>{
 
 module.exports = {
     addUser,
+    getUserById,
     getSingleUser,
     buyerUser,
     supplierUser,

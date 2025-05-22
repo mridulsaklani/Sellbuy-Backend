@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const {getUser, getSingleUser, buyerUser, supplierUser,verifyOTP, getUsersQuantity, loginUser, logoutUser, refreshAccessToken, changePassword, addUser, updateUser, userVerificationForgotPassword, verifyOTPForgetPassword, changePasswordForget, deleteUser} = require('../controllers/UserController')
+const {getUser, getUserById, getSingleUser, buyerUser, supplierUser,verifyOTP, getUsersQuantity, loginUser, logoutUser, refreshAccessToken, changePassword, addUser, updateUser, userVerificationForgotPassword, verifyOTPForgetPassword, changePasswordForget, deleteUser} = require('../controllers/UserController')
 
 const verifyJWT = require("../middlewares/AuthMiddleware");
 
 
 router.route('/register').post(addUser);
+router.route("/byid/:id").get(verifyJWT, getUserById);
 router.route('/users').get(verifyJWT, getUser);
 router.route("/profile").get(verifyJWT, getSingleUser);
 router.route("/buyer").get(verifyJWT,buyerUser);

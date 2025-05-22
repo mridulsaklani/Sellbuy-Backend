@@ -14,6 +14,10 @@ const supplierSchema = new mongoose.Schema({
         required: true,
         enum:["material supplier", "service provider", "transporter", "machine rentals", "waste management", "interior"]
     },
+    deliveries:{
+        type: Number,
+        default: 0,
+    },
     branchDetail: [{
         gstNumber: {
           type: String,

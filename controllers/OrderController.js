@@ -1,6 +1,26 @@
 const mongoose = require("mongoose")
 const orderSchema = require('../models/OrderSchema.js');
-const VRFQSchema = require("../models/VRFQSchema.js")
+const VRFQSchema = require("../models/VRFQSchema.js");
+const userSchema = require("../models/UserModel.js")
+
+const getTotalOrderReceive = async(req,res)=>{
+    try{
+       let limit = 6
+       
+      
+
+       const response = await orderSchema.find({}).populate({path: "vrfqId", populate:{path: "brfqId", model: "brfq", populate:{path: "rfqId", model:"rfq", populate:{path:"createdBy", model:"user"}}}}).limit(limit).sort({createdAt: -1});
+
+       if(!response) return res.status(404).json({message: 'Order data not founded'})
+       
+
+       return res.status(200).json({message: "Order data get successfully", orders : response})
+    }
+    catch(error){
+       console.error(error);
+       res.status(500).json({message: "Internal server error"});
+    }
+}
 
 
 const getAllOrder = async(req, res)=>{
@@ -16,11 +36,49 @@ const getAllOrder = async(req, res)=>{
         const totalPages = Math.ceil(count / limit);
 
         return res.status(200).json({message: "Order data get successfully", orders : response, totalPages})
+
     } catch (error) {
         console.error(error);
         res.status(500).json({success: false, message: 'Internal server error'})
     }
 }
+
+const dailyOrderReceived = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setUTCDate(today.getUTCDate() - 6);
+
+    const response = await orderSchema.find({
+      createdAt: {
+        $gte: sevenDaysAgo,
+        $lte: new Date()
+      }
+    });
+
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+let orderCountByDay = [];
+
+for (let i = 0; i < 7; i++) {
+  orderCountByDay.push({ day: days[i], sales: 0 });
+}
+
+response.forEach(order => {
+  const dayIndex = new Date(order.createdAt).getUTCDay();
+  orderCountByDay[dayIndex].sales++;
+});
+
+return res.status(200).json({ success: true, weeklyOrderData: orderCountByDay });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+
+
 
 const getOrderHistory = async(req, res)=>{
     try {
@@ -213,10 +271,12 @@ const updateOrderTracker = async(req,res)=> {
     try {
         const id = req.params?.id;
         const {process} = req.body;
+        const userId = req.user._id
 
-        if(!mongoose.Types.ObjectId.isValid(id)) return res.status(401).json({message: "Unauthorized mongoose id"})
+        if(!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) return res.status(401).json({message: "Unauthorized mongoose id"})
 
         if(!process) return res.status(400).json({message: "Process field not found"});
+        const user = await userSchema.findById(userId)
 
         const order = await orderSchema.findById(id).lean();
 
@@ -226,10 +286,15 @@ const updateOrderTracker = async(req,res)=> {
           return  res.status(401).json({message: "Order is already delivered"});
         }
 
+        
         let response;
 
         if(process === "delivered"){
              response = await orderSchema.findByIdAndUpdate(id,{$set: {process, status: true}},{new: true, runValidators: true});
+             const completedOrderbySupplier = await orderSchema.find({supplier: {$eq: userId}, status: true});
+     
+             user.deliveries = Number(completedOrderbySupplier.length)
+             await user.save()
         }
         else{
             response = await orderSchema.findByIdAndUpdate(id,{$set: {process}},{new: true, runValidators: true});
@@ -246,44 +311,6 @@ const updateOrderTracker = async(req,res)=> {
     }
 }
 
-// const getTotalOrderCount = async(req, res)=>{
-// try {
-//     const response  = await orderSchema.aggregate([
-//         {
-//             $lookup:{
-//              from: "vrfqs",
-//              localField: "vrfqId",
-//              foreignField: "_id",
-//              as: "vrfq_data"
-//             }
-//          },
-//         {
-//         $lookup:{
-//             from: "users",
-//             localField:"supplier",
-//             foreignField: "_id",
-//             as:"supplier_data"
-//         }},
-//         {
-//             $lookup:{
-//                 from: "users",
-//                 localField:"buyer",
-//                 foreignField: "_id",
-//                 as: "buyer_data"
-//             }
-//         },
-        
-        
-//     ])
-
-//     if(!response) res.status(400).json({message: "Supplier count not found"});
-
-//     return res.status(200).json({message: "Get successfully supplier count", supplier: response})
-// } catch (error) {
-//     console.error(error);
-//     res.status(500).json({message: 'Internal server error'})
-// }
-// }
 
 const getTotalOrderCount = async (req, res) => {
     try {
@@ -306,9 +333,11 @@ const getTotalOrderCount = async (req, res) => {
 
 
 module.exports = {
+    getTotalOrderReceive,
     getAllOrder,
     getOrderHistory,
     getOrderById,
+    dailyOrderReceived,
     getSupplierUserOrder,
     getBuyerUserOrder,
     getBuyerOrderHistory,
