@@ -573,6 +573,31 @@ const deleteUser = async(req,res)=>{
 
 }
 
+// Supplier Count
+
+const getSupplierCount = async(req,res)=>{
+    try{
+       const response = await UserSchema.aggregate([
+        {
+            $match:{
+                role: "supplier"
+            },
+            
+        },{
+            $count:"totalSupplier"
+        }
+
+       ])
+       const supplierCount = response[0].totalSupplier || 0
+      
+       return res.status(200).json({supplierCount})
+    }catch(err){
+        console.log(err)
+        res.status(500).json({message:"Internal server error"})
+    }
+
+}
+
 module.exports = {
     addUser,
     getUserById,
@@ -590,5 +615,6 @@ module.exports = {
     userVerificationForgotPassword,
     verifyOTPForgetPassword,
     deleteUser,
-    changePasswordForget
+    changePasswordForget,
+    getSupplierCount
 }

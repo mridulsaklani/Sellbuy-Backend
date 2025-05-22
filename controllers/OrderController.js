@@ -1,7 +1,8 @@
 const mongoose = require("mongoose")
 const orderSchema = require('../models/OrderSchema.js');
 const VRFQSchema = require("../models/VRFQSchema.js");
-const userSchema = require("../models/UserModel.js")
+const userSchema = require("../models/UserModel.js");
+const OrderSchema = require("../models/OrderSchema.js");
 
 const getTotalOrderReceive = async(req,res)=>{
     try{
@@ -329,6 +330,60 @@ const getTotalOrderCount = async (req, res) => {
     }
 };
 
+const getOrderCountForSupplier = async(req,res)=>{
+    try{
+        const id = req.user._id
+
+        console.log(id)
+
+        const response = await OrderSchema.aggregate([
+            {
+                $match: {
+                    supplier: new mongoose.Types.ObjectId(id),
+                    
+                }
+            },
+            {
+                $count: "totalOrders"
+            }
+        ]);
+
+        const totalOrders = response[0]?.totalOrders || 0;
+        res.status(200).json({ totalOrders });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+const getSupplierOrderDeliverCount = async(req,res)=>{
+    try{
+        const id = req.user._id
+
+      
+
+        const response = await OrderSchema.aggregate([
+            {
+                $match: {
+                    supplier: new mongoose.Types.ObjectId(id),
+                    status: true
+                    
+                }
+            },
+            {
+                $count: "totalOrders"
+            }
+        ]);
+
+        const orderCount = response[0]?.totalOrders || 0;
+        res.status(200).json({ orderCount });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
 
 
 
@@ -344,5 +399,7 @@ module.exports = {
     getSupplierOrderHistory,
     generateOrder,
     getTotalOrderCount,
-    updateOrderTracker
+    updateOrderTracker,
+    getOrderCountForSupplier,
+    getSupplierOrderDeliverCount
 }

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {getUser, getUserById, getSingleUser, buyerUser, supplierUser,verifyOTP, getUsersQuantity, loginUser, logoutUser, refreshAccessToken, changePassword, addUser, updateUser, userVerificationForgotPassword, verifyOTPForgetPassword, changePasswordForget, deleteUser} = require('../controllers/UserController')
+const {getUser, getUserById, getSingleUser, buyerUser, supplierUser,verifyOTP, getUsersQuantity, loginUser, logoutUser, refreshAccessToken, changePassword, addUser, updateUser, userVerificationForgotPassword, verifyOTPForgetPassword, changePasswordForget, deleteUser, getSupplierCount} = require('../controllers/UserController')
 
 const verifyJWT = require("../middlewares/AuthMiddleware");
 
@@ -22,6 +22,7 @@ router.route('/forget-password').post(userVerificationForgotPassword)
 router.route("/password-verify-otp").post(verifyOTPForgetPassword);
 router.route("/change-password-forget").patch(verifyJWT, changePasswordForget)
 router.route("/update").patch(verifyJWT, updateUser)
+router.route('/supplier-count').get(verifyJWT, getSupplierCount)
 
 
 module.exports = router;
