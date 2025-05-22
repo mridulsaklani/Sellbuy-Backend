@@ -22,15 +22,15 @@ const sendWelcomeMail = async (toEmail, name, otp) => {
     await initTransporter();
 
     const info = await transporter.sendMail({
-      from: '"BildKart Team" <bildkartsupport@bildkart.com>',
+      from: '"Sellbuy Team" <sellbuysupport@sellbuy.com>',
       to: toEmail,
-      subject: "Welcome to BildKart!",
+      subject: "Welcome to Sellbuy!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9f9f9; color: #333;">
       <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-        <h2 style="color: #0d6efd;">Welcome to BildKart, ${name}!</h2>
+        <h2 style="color: #0d6efd;">Welcome to Sellbuy, ${name}!</h2>
         <p style="font-size: 16px; line-height: 1.6;">
-          We're thrilled to have you join our community. BildKart is your trusted platform for construction materials and services.
+          We're thrilled to have you join our community. sellbuy is your trusted platform for construction materials and services.
         </p>
 
         <p style="font-size: 16px; line-height: 1.6;">
@@ -45,18 +45,18 @@ const sendWelcomeMail = async (toEmail, name, otp) => {
 
         <p style="font-size: 16px; line-height: 1.6;">
           If you have any questions or need assistance, feel free to contact our support team at 
-          <a href="mailto:bildkartsupport@bildkart.com" style="color: #0d6efd;">bildkartsupport@bildkart.com</a>.
+          <a href="mailto:sellbuysupport@sellbuy.com" style="color: #0d6efd;">sellbuysupport@sellbuy.com</a>.
         </p>
 
         <p style="margin-top: 40px; font-size: 16px;">
           Best regards,<br/>
           Mridul Saklani<br/>
-          <strong>The BildKart Team</strong>
+          <strong>The Sellbuy Team</strong>
         </p>
       </div>
 
       <p style="text-align: center; font-size: 12px; color: #888; margin-top: 20px;">
-        © ${new Date().getFullYear()} BildKart. All rights reserved.
+        © ${new Date().getFullYear()} Sellbuy. All rights reserved.
       </p>
     </div>
       `,
@@ -73,13 +73,13 @@ const sendUserVerificationMail = async (toEmail, otp) => {
   try {
     await initTransporter()
     const info = await transporter.sendMail({
-      from: '"BildKart Team" <bildkartsupport@bildkart.com>',
+      from: '"Sellbuy Team" <sellbuysupport@.com>',
       to: toEmail,
-      subject: "Welcome to BildKart!",
+      subject: "Welcome to Sellbuy!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9f9f9; color: #333;">
       <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.05);">
-        <h2 style="color: #0d6efd;">Welcome back to BildKart, !</h2>
+        <h2 style="color: #0d6efd;">Welcome back to Sellbuy, !</h2>
         <p style="font-size: 16px; line-height: 1.6;">
           We send you user verification OTP
         </p>
@@ -96,18 +96,18 @@ const sendUserVerificationMail = async (toEmail, otp) => {
 
         <p style="font-size: 16px; line-height: 1.6;">
           If you have any questions or need assistance, feel free to contact our support team at 
-          <a href="mailto:bildkartsupport@bildkart.com" style="color: #0d6efd;">bildkartsupport@bildkart.com</a>.
+          <a href="mailto:sellbuysupport@gmail.com" style="color: #0d6efd;">sellbuysupport@gmail.com</a>.
         </p>
 
         <p style="margin-top: 40px; font-size: 16px;">
           Best regards,<br/>
           Mridul Saklani<br/>
-          <strong>The BildKart Team</strong>
+          <strong>The Sellbuy Team</strong>
         </p>
       </div>
 
       <p style="text-align: center; font-size: 12px; color: #888; margin-top: 20px;">
-        © ${new Date().getFullYear()} BildKart. All rights reserved.
+        © ${new Date().getFullYear()} sellbuy. All rights reserved.
       </p>
     </div>
       `,
